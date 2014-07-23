@@ -1,11 +1,18 @@
 #! /usr/bin/env python
 # -*- coding: UTF-8 -*-
 
-# 
-# a pure python implementation of l-system (Lindenmayer system) for simulate Plants.
+""" 
+a pure python implementation of l-system (Lindenmayer system) for simulate Plants.
 
-# masterzu 
-# 
+Classes graph:
+
+    Lsystem: (abstract) Base for L-System grammar
+        +- D0L: Determinist, context-free Lsystem grammar
+    Plot: (abstract) Base plot for L-System classes
+        +- D0LTurtlePlot: plot with turtle for Determinist, context-free Lsystem grammar
+
+masterzu, 2014
+""" 
 VERSION = 1
 
 # History 
@@ -75,8 +82,6 @@ class D0L(Lsystem):
 
     Works with all string, so with D0L branching rules.
 
-    axiom = string
-    rules = dict(character: string)
 
     >>> D0L('',{'F': 'F-F++F-F'})._steps(2)
     Traceback (most recent call last):
@@ -96,6 +101,12 @@ class D0L(Lsystem):
     gen 3: FFFF[+FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]FFFF[-FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]
     """
     def __init__(self, axiom, rules, plot=None):
+        """
+        Args:
+        axiom : string
+        rules : dict(character: string)
+        plot: Plot
+        """
         Lsystem.__init__(self, axiom, rules, plot)
         # self.axiom = axiom
         # self.rules = rules
