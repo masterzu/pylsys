@@ -12,7 +12,63 @@ VERSION = 1
 # * 19 juil. 2014 - 1
 # - initial version
 
-class D0L:
+class Lsystem:
+    """
+    The abstract class for L-system
+    """
+    def __init__(self, axiom, rules, plot=None):
+        """
+        init func with plot instance of type LsystemPlot
+        """
+        if axiom == '':
+            raise ValueError, 'axiom must be non empty'
+        self.state = axiom
+        self.axiom = axiom
+        self.rules = rules
+
+        self.plot = plot
+        if plot is not None:
+            plot.Lsystem(self)
+
+        self.generation = 0
+
+    def plot(self, plot=None):
+        """
+        Get/Set plot system
+        """
+        # get 
+        if plot is None:
+            return self.plot
+        # set self.plot and plot.lsystem
+        self.plot = plot
+        # self.plot.lsystem(self)
+
+
+    def draw(self):
+        """
+        plot the current state
+        """
+        if self.plot is not None:
+            self.plot.draw(self.state)
+
+    def step(self):
+        """
+        advance to next generation
+        """
+        raise NotImplementedError
+
+    def evolute(self, nb_gen):
+        """
+        Generator of nb_gen next generation
+
+        Return: list of string
+        """
+        for i in xrange(nb_gen):
+            self.step()
+            yield self.state
+
+
+class D0L(Lsystem):
     """
     D0L-system
     The simple Determinist, context free L-system.
@@ -39,13 +95,14 @@ class D0L:
     gen 2: FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]
     gen 3: FFFF[+FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]FFFF[-FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]
     """
-    def __init__(self, axiom, rules):
-        self.axiom = axiom
-        self.rules = rules
-        if axiom == '':
-            raise ValueError, 'axiom must be non empty'
-        self.state = axiom
-        self.generation = 0
+    def __init__(self, axiom, rules, plot=None):
+        Lsystem.__init__(self, axiom, rules, plot)
+        # self.axiom = axiom
+        # self.rules = rules
+        # if axiom == '':
+        #     raise ValueError, 'axiom must be non empty'
+        # self.state = axiom
+        # self.generation = 0
         self.finished = False
 
     def __repl__(self):
@@ -92,15 +149,10 @@ class D0L:
         if verbose:
             self.echo()
 
-    def evolute(self, gen=None):
+    def evolute(self, gen):
         """
         Generator of <gen> generation, return 'state' at each generation
         
-        >>> d = D0L('F', {'F': 'XF'})
-        >>> for i in d.evolute(): print i
-        Traceback (most recent call last):
-            ...
-        Exception: <gen> must be an int
         >>> d = D0L('F', {'F': 'XF'})
         >>> for i in d.evolute(3): print i
         XF
@@ -108,11 +160,7 @@ class D0L:
         XXXF
 
         """
-        if gen is None:
-            raise Exception, '<gen> must be an int'
-        for i in xrange(gen):
-            self.step()
-            yield self.state
+        return Lsystem.evolute(self, gen)
 
 
 
@@ -180,18 +228,40 @@ def _turtleBox(string, lengh=10, angle=90):
 
 
 import turtle
-class D0LTurtle:
+
+class Plot:
+    """
+    Abstract Class for Lsystem ploting
+    """
+    def __init__(self):
+        raise NotImplementedError
+
+    def lsystem(self, lsys=None):
+        """
+        Set/Get Lsystem
+        """
+        # get
+        if lsys is None:
+            return self.lsystem
+        # set self.lsystem and lsys.plot
+        self.lsystem = lsys
+        #lsys.plot(self)
+
+    def draw(self):
+        raise NotImplementedError
+
+class D0LTurtlePlot(Plot):
     """
     plot D0L with python turtle module
-
-    >>> t = D0LTurtle()
     """
 
-    def __init__(self, functions=None, lengh=10, angle=90, colors=None):
+    def __init__(self, lengh=10, angle=90, colors=None, lsystem=None):
         self.lengh = lengh
         self.angle = angle
         if colors is None:
             self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'brown']
+        if lsystem is not None:
+            self.lsystem(lsystem)
 
 	# draw number
         self.ith_draw = 0
@@ -215,7 +285,7 @@ class D0LTurtle:
             turtle.pencolor(p)
 
     def draw(self, state):
-        print "draw in %s the state: %s " % (turtle.pencolor(), state)
+        # print "draw in %s the state: %s " % (turtle.pencolor(), state)
         for c in state:
             if c == 'F':
                 turtle.forward(self.lengh)
@@ -265,6 +335,7 @@ class D0LTurtle:
         print '- angle %s ' % self.angle
         for s in list_of_states:
             self.draw(s)
+            self.lengh *= 0.5
             self.nextdraw()
         self.done()
         
@@ -273,17 +344,7 @@ class D0LTurtle:
 
 if __name__ == '__main__':
     import doctest, sys
-    print "####### doctest BEGIN ##"
     doctest.testmod()
-    print "####### doctest END ####"
-    sys.exit()
-    g = D0L('F++F++F', {'F': 'F-F++F-F'})
-    t = D0LTurtle(angle=60)
-    t.draw_evolute(g.evolute(3))
-
-    g = D0L('F', {'F': 'F-F+F+F-F'})
-    t = D0LTurtle(lengh=50)
-    t.draw_evolute(g.evolute(3))
 
 
 
