@@ -20,7 +20,6 @@ VERSION = 1
 # - initial version
 
 import math
-import turtle
 
 class BaseLsystem:
     """
@@ -52,25 +51,25 @@ class BaseLsystem:
         self._plot = plot
 
         # check axiom
-        self.check_axiom()
+        self._check_axiom()
 
         # check plot and set plot.lsys
         if plot is not None:
-            self.check_plot()
+            self._check_plot()
             plot.lsystem(self)
 
 	# the current state
         self.state = axiom
         self.generation = 0
 
-    def check_axiom(self):
+    def _check_axiom(self):
         """
         axiom must be a string
         """
         if not isinstance(self.axiom, ''.__class__) or self.axiom == '':
             raise TypeError('axiom must be a non empty string')
 
-    def check_rules(self):
+    def _check_rules(self):
         """
         NotImplementedError
 
@@ -78,7 +77,7 @@ class BaseLsystem:
         """
         raise NotImplementedError
 
-    def check_plot(self):
+    def _check_plot(self):
         """
         plot must be a instance of Plot subclass
         """
@@ -108,9 +107,8 @@ class BaseLsystem:
         if plot is None:
             return self._plot
         # set self.plot 
-        if not issubclass(plot.__class__, Plot):
-            raise TypeError('plot must be a instance of Plot subclass')
         self._plot = plot
+        self._check_plot()
         # FIXME and plot.lsystem
         # self.plot.lsystem(self)
 
@@ -124,7 +122,9 @@ class BaseLsystem:
 
     def step(self):
         """
-        advance to next generation
+        advance to next generation and return the new state
+
+        NotImplementedError
         """
         raise NotImplementedError
 
@@ -166,45 +166,56 @@ class D0Lsystem(BaseLsystem):
         BaseLsystem.__init__(self, axiom, rules, plot)
 
         # check rules is a dict
-        self.check_rules()
+        self._check_rules()
 
         self.finished = False
 
-    def check_rules(self):
+    def _check_rules(self):
         if not isinstance(self.rules, {}.__class__):
             raise TypeError('rules must be a non empty dict')
         if self.rules.keys() == []:
             raise TypeError('rules must be a non empty dict')
 
-
-    def __repl__(self):
-        return 'gen ' + str(self.generation) + ': ' + str(self)
-
     def __str__(self):
         """
+        return the current state
+
         >>> d = D0Lsystem('F', {'F': 'F+F'})
         >>> str(d)
         'F'
         >>> d.step()
+        'F+F'
+        >>> print d
+        F+F
         >>> str(d)
         'F+F'
         """
         if self.state is None:
             return '(none)'
         return str(self.state)
+    
+    def __repl__(self):
+        return self.__str__()
 
-    def echo(self):
-        print 'gen ' + str(self.generation) + ': ' + self.state
-
-    def step(self, verbose=False):
+    def step(self):
         """
         calculate a step of L-system
-        """
-        if self.state is None:
-            self.state = self.axiom
 
+        Returns:
+        	the new state
+
+        >>> l = D0Lsystem('F', {'F': 'CF'})
+        >>> l.step()
+        'CF'
+        >>> l.step()
+        'CCF'
+        >>> l.step()
+        'CCCF'
+        >>> l.step()
+        'CCCCF'
+        """
         if self.finished:
-            return
+            return self.state
 
 
         s = ""
@@ -218,8 +229,7 @@ class D0Lsystem(BaseLsystem):
         if os == s:
             self.finished = True
         self.generation = self.generation + 1
-        if verbose:
-            self.echo()
+        return self.state
 
     def evolute(self, gen):
         """
@@ -255,7 +265,8 @@ class D0Lsystem(BaseLsystem):
         for r in self.rules.keys():
             print "| %s -> %s" % (r, self.rules[r])
         for _ in xrange(n):
-            self.step(True)
+            self.step()
+            print 'gen ' + str(self.generation) + ': ' + self.state
 
 def _bounding_box(xmin, xmax, ymin, ymax):
     """
@@ -310,6 +321,7 @@ class PlotD0LTurtle(Plot):
     """
 
     def __init__(self, lengh=10, angle=90, colors=None, lsystem=None):
+        import turtle
         self.lengh = lengh
         self.angle = angle
         if colors is None:
@@ -333,12 +345,14 @@ class PlotD0LTurtle(Plot):
         self.pencolor()
 	
     def pencolor(self, p=None):
+        import turtle
         if p is None:
             turtle.pencolor(self.colors[self.ith_draw % len(self.colors)])
         else:
             turtle.pencolor(p)
 
     def draw(self, state):
+        import turtle
         # print "draw in %s the state: %s " % (turtle.pencolor(), state)
         for c in state:
             if c == 'F':
@@ -355,6 +369,7 @@ class PlotD0LTurtle(Plot):
                 turtle.right(self.angle)
 
     def reset(self):
+        import turtle
         turtle.penup()
         turtle.home()
         turtle.pendown()
@@ -362,6 +377,7 @@ class PlotD0LTurtle(Plot):
 
 
     def nextdraw(self):
+        import turtle
         # next draw
         self.ith_draw += 1
 
@@ -377,6 +393,7 @@ class PlotD0LTurtle(Plot):
         self.ymin = self.ymax = turtle.ycor()
 
     def done(self):
+        import turtle
         """
         finish all draws 
         and wait for click to close de window
