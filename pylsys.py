@@ -6,10 +6,10 @@ a pure python implementation of l-system (Lindenmayer system) for simulate Plant
 
 Classes graph:
 
-    Lsystem: (abstract) Base for L-System grammar
-        +- D0L: Determinist, context-free Lsystem grammar
+    BaseLsystem: (abstract) Base for L-System grammar
+        +- D0Lsystem: Determinist, context-free Lsystem grammar
     Plot: (abstract) Base plot for L-System classes
-        +- D0LTurtlePlot: plot with turtle for Determinist, context-free Lsystem grammar
+        +- PlotD0LTurtle: plot with turtle for Determinist, context-free Lsystem grammar
 
 masterzu, 2014
 """ 
@@ -19,35 +19,99 @@ VERSION = 1
 # * 19 juil. 2014 - 1
 # - initial version
 
-class Lsystem:
+import math
+import turtle
+
+class BaseLsystem:
     """
     The abstract class for L-system
     """
     def __init__(self, axiom, rules, plot=None):
         """
         init func with plot instance of type LsystemPlot
+
+        rules tests must be made on subclasses
+
+        >>> BaseLsystem('', '')
+        Traceback (most recent call last):
+            ...
+        TypeError: axiom must be a non empty string
+
+        >>> l = BaseLsystem('Q', '')
+
+        >>> BaseLsystem('Q', '', '')
+        Traceback (most recent call last):
+            ...
+        TypeError: plot must be a instance of Plot subclass
+        >>> p = PlotD0LTurtle()
+        >>> l = BaseLsystem('Q', '', p)
         """
-        if axiom == '':
-            raise ValueError, 'axiom must be non empty'
-        self.state = axiom
+        # setting
         self.axiom = axiom
         self.rules = rules
+        self._plot = plot
 
-        self.plot = plot
+        # check axiom
+        self.check_axiom()
+
+        # check plot and set plot.lsys
         if plot is not None:
-            plot.Lsystem(self)
+            self.check_plot()
+            plot.lsystem(self)
 
+	# the current state
+        self.state = axiom
         self.generation = 0
+
+    def check_axiom(self):
+        """
+        axiom must be a string
+        """
+        if not isinstance(self.axiom, ''.__class__) or self.axiom == '':
+            raise TypeError('axiom must be a non empty string')
+
+    def check_rules(self):
+        """
+        NotImplementedError
+
+        rules must be define in subclass
+        """
+        raise NotImplementedError
+
+    def check_plot(self):
+        """
+        plot must be a instance of Plot subclass
+        """
+        if not issubclass(self._plot.__class__, Plot):
+            raise TypeError('plot must be a instance of Plot subclass')
+
+
+
 
     def plot(self, plot=None):
         """
         Get/Set plot system
+
+        >>> l = BaseLsystem('Q', '')
+        >>> l.plot() is None
+        True
+        >>> l.plot(3)
+        Traceback (most recent call last):
+            ...
+        TypeError: plot must be a instance of Plot subclass
+        >>> p = PlotD0LTurtle()
+        >>> l.plot(p)
+        >>> isinstance(l.plot(), PlotD0LTurtle)
+        True
         """
         # get 
         if plot is None:
-            return self.plot
-        # set self.plot and plot.lsystem
-        self.plot = plot
+            return self._plot
+        # set self.plot 
+        if not issubclass(plot.__class__, Plot):
+            raise TypeError('plot must be a instance of Plot subclass')
+        self._plot = plot
+        # FIXME and plot.lsystem
         # self.plot.lsystem(self)
 
 
@@ -75,53 +139,50 @@ class Lsystem:
             yield self.state
 
 
-class D0L(Lsystem):
+class D0Lsystem(BaseLsystem):
     """
-    D0L-system
-    The simple Determinist, context free L-system.
+    A simple Determinist, context free L-system.
 
     Works with all string, so with D0L branching rules.
 
-
-    >>> D0L('',{'F': 'F-F++F-F'})._steps(2)
-    Traceback (most recent call last):
-        ...
-    ValueError: axiom must be non empty
-    >>> D0L('F+F+F',{'F': 'F-F++F-F'})._steps(2)
-    | axiom : F+F+F
-    | F -> F-F++F-F
-    gen 1: F-F++F-F+F-F++F-F+F-F++F-F
-    gen 2: F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F+F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F+F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F
-    >>> D0L('X',{'X': 'F[+X]F[-X]', 'F': 'FF'})._steps(3)
-    | axiom : X
-    | X -> F[+X]F[-X]
-    | F -> FF
-    gen 1: F[+X]F[-X]
-    gen 2: FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]
-    gen 3: FFFF[+FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]FFFF[-FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]
     """
     def __init__(self, axiom, rules, plot=None):
         """
         Args:
         axiom : string
         rules : dict(character: string)
-        plot: Plot
+        plot: instance of Plot subclass
+
+        >>> D0Lsystem('F','')
+        Traceback (most recent call last):
+            ...
+        TypeError: rules must be a non empty dict
+        >>> D0Lsystem('Q',{})
+        Traceback (most recent call last):
+            ...
+        TypeError: rules must be a non empty dict
+        >>> l = D0Lsystem('Q',{1: 2})
         """
-        Lsystem.__init__(self, axiom, rules, plot)
-        # self.axiom = axiom
-        # self.rules = rules
-        # if axiom == '':
-        #     raise ValueError, 'axiom must be non empty'
-        # self.state = axiom
-        # self.generation = 0
+        BaseLsystem.__init__(self, axiom, rules, plot)
+
+        # check rules is a dict
+        self.check_rules()
+
         self.finished = False
+
+    def check_rules(self):
+        if not isinstance(self.rules, {}.__class__):
+            raise TypeError('rules must be a non empty dict')
+        if self.rules.keys() == []:
+            raise TypeError('rules must be a non empty dict')
+
 
     def __repl__(self):
         return 'gen ' + str(self.generation) + ': ' + str(self)
 
     def __str__(self):
         """
-        >>> d = D0L('F', {'F': 'F+F'})
+        >>> d = D0Lsystem('F', {'F': 'F+F'})
         >>> str(d)
         'F'
         >>> d.step()
@@ -164,81 +225,63 @@ class D0L(Lsystem):
         """
         Generator of <gen> generation, return 'state' at each generation
         
-        >>> d = D0L('F', {'F': 'XF'})
+        >>> d = D0Lsystem('F', {'F': 'XF'})
         >>> for i in d.evolute(3): print i
         XF
         XXF
         XXXF
 
         """
-        return Lsystem.evolute(self, gen)
+        return BaseLsystem.evolute(self, gen)
 
 
 
     def _steps(self, n):
+        """
+        >>> D0Lsystem('F+F+F',{'F': 'F-F++F-F'})._steps(2)
+        | axiom : F+F+F
+        | F -> F-F++F-F
+        gen 1: F-F++F-F+F-F++F-F+F-F++F-F
+        gen 2: F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F+F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F+F-F++F-F-F-F++F-F++F-F++F-F-F-F++F-F
+        >>> D0Lsystem('X',{'X': 'F[+X]F[-X]', 'F': 'FF'})._steps(3)
+        | axiom : X
+        | X -> F[+X]F[-X]
+        | F -> FF
+        gen 1: F[+X]F[-X]
+        gen 2: FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]
+        gen 3: FFFF[+FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]FFFF[-FF[+F[+X]F[-X]]FF[-F[+X]F[-X]]]
+        """
         print '| axiom : %s' % self.axiom
         for r in self.rules.keys():
             print "| %s -> %s" % (r, self.rules[r])
         for _ in xrange(n):
             self.step(True)
 
-
-import math
-def _turtleBox(string, lengh=10, angle=90):
+def _bounding_box(xmin, xmax, ymin, ymax):
     """
-    just calculate de boxing of a D0L string
+    Calculate the bounding box in integer from float one 
 
-    >>> _turtleBox('F')
-    (0, 0, 0, 10.0)
-    >>> _turtleBox('F+F')
-    (0, 10.0, 0, 10.0)
-
+    >>> _bounding_box(0.0, 0.0, 0.0, 0.0)
+    (0, 0, 0, 0)
+    >>> _bounding_box(0.1, -0.1, 0.0, 0.0)
+    Traceback (most recent call last):
+        ...
+    ValueError
+    >>> _bounding_box(-0.1, 0.1, 0.0, 0.1)
+    (-1, 1, 0, 1)
     """
-    xmin = 0
-    xmax = 0
-    ymin = 0
-    ymax = 0 
-    x = 0
-    y = 0
+    def m(f):
+        return int(math.floor(f))
+    def M(f):
+        return int(math.ceil(f))
 
-    # like in turtle.mode('logo')
-    head = 90
-    flengh = float(lengh)
+    if xmin > xmax or ymin > ymax:
+        raise ValueError
 
-    for c in string:
-        if c == 'F':
-            if angle == 90:
-                if head % 360 == 0:
-                    x += flengh
-                    xmax = max(xmax, x)
-                if head % 360 == 90:
-                    y += flengh
-                    ymax = max(ymax, y)
-                if head % 360 == 180:
-                    x -= flengh
-                    xmin = min(xmin, x)
-                if head % 360 == 270:
-                    y -= flengh
-                    ymin = min(ymin, y)
-            else:
-                angle_rad = math.radians(head)
-                x = x + math.cos(angle_rad) * lengh
-                y = y + math.sin(angle_rad) * lengh
-                xmin = min(xmin, x)
-                xmax = max(xmax, x)
-                ymin = min(ymin, y)
-                ymax = max(ymax, y)
-        if c == '+':
-            head = (head - angle + 360) % 360
-        if c == '-':
-            head = (head + angle) % 360
-
-        # print xmin, xmax, ymin, ymax
-
-    return xmin, xmax, ymin, ymax
+    return m(xmin), M(xmax), m(ymin), M(ymax)
 
 
-import turtle
+
 
 class Plot:
     """
@@ -261,7 +304,7 @@ class Plot:
     def draw(self):
         raise NotImplementedError
 
-class D0LTurtlePlot(Plot):
+class PlotD0LTurtle(Plot):
     """
     plot D0L with python turtle module
     """
@@ -352,6 +395,64 @@ class D0LTurtlePlot(Plot):
             self.lengh *= 0.5
             self.nextdraw()
         self.done()
+
+    def _bbox(self, lengh=10, angle=90):
+        """
+        just calculate de boxing of a D0L string
+
+        Return:
+            (int xmin, int xmax, int ymin, int ymax)
+
+        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F'}))._bbox()
+        (0, 0, 0, 10)
+        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F+F'}))._bbox()
+        (0, 10, 0, 10)
+        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F-F'}))._bbox()
+        (-10, 0, 0, 10)
+
+        """
+        xmin = 0
+        xmax = 0
+        ymin = 0
+        ymax = 0 
+        x = 0
+        y = 0
+
+        # like in turtle.mode('logo')
+        head = 90
+        flengh = float(lengh)
+
+        string = self.state
+
+        for c in string:
+            if c == 'F':
+                if angle == 90:
+                    if head % 360 == 0:
+                        x += flengh
+                        xmax = max(xmax, x)
+                    if head % 360 == 90:
+                        y += flengh
+                        ymax = max(ymax, y)
+                    if head % 360 == 180:
+                        x -= flengh
+                        xmin = min(xmin, x)
+                    if head % 360 == 270:
+                        y -= flengh
+                        ymin = min(ymin, y)
+                else:
+                    angle_rad = math.radians(head)
+                    x = x + math.cos(angle_rad) * lengh
+                    y = y + math.sin(angle_rad) * lengh
+                    xmin = min(xmin, x)
+                    xmax = max(xmax, x)
+                    ymin = min(ymin, y)
+                    ymax = max(ymax, y)
+            if c == '+':
+                head = (head - angle + 360) % 360
+            if c == '-':
+                head = (head + angle) % 360
+
+        return _bounding_box(xmin, xmax, ymin, ymax)
         
 
 
