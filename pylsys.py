@@ -340,11 +340,14 @@ class D0LTurtlePlot(Plot):
         """
         turtle.exitonclick()
 
-    def draw_evolute(self, list_of_states):
+    def draw_evolute(self, i):
+        """
+        draw evolution state using lsystem.evolute(i)
+        """
         print 'Draw with:'
         print '- lengh %s' % self.lengh
         print '- angle %s ' % self.angle
-        for s in list_of_states:
+        for s in self.lsystem.evolute(i):
             self.draw(s)
             self.lengh *= 0.5
             self.nextdraw()
