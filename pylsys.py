@@ -59,7 +59,7 @@ class BaseLsystem:
             plot.lsystem(self)
 
 	# the current state
-        self.state = axiom
+        self._current_state = axiom
         self.generation = 0
 
     def _check_axiom(self):
@@ -85,6 +85,15 @@ class BaseLsystem:
             raise TypeError('plot must be a instance of Plot subclass')
 
 
+    def state(self):
+        """
+        return current state
+
+        >>> l = BaseLsystem('F', '')
+        >>> l.state()
+        'F'
+        """
+        return self._current_state
 
 
     def plot(self, plot=None):
@@ -118,7 +127,7 @@ class BaseLsystem:
         plot the current state
         """
         if self.plot is not None:
-            self.plot.draw(self.state)
+            self.plot.draw(self.string())
 
     def step(self):
         """
@@ -136,7 +145,7 @@ class BaseLsystem:
         """
         for i in xrange(nb_gen):
             self.step()
-            yield self.state
+            yield self._current_state
 
 
 class D0Lsystem(BaseLsystem):
@@ -190,9 +199,9 @@ class D0Lsystem(BaseLsystem):
         >>> str(d)
         'F+F'
         """
-        if self.state is None:
+        if self._current_state is None:
             return '(none)'
-        return str(self.state)
+        return str(self._current_state)
     
     def __repl__(self):
         return self.__str__()
@@ -215,21 +224,21 @@ class D0Lsystem(BaseLsystem):
         'CCCCF'
         """
         if self.finished:
-            return self.state
+            return self._current_state
 
 
         s = ""
-        os = self.state
-        for c in self.state:
+        os = self._current_state
+        for c in self._current_state:
             if c in self.rules.keys():
                 s = s + self.rules[c]
             else:
                 s = s + c
-        self.state = s
+        self._current_state = s
         if os == s:
             self.finished = True
         self.generation = self.generation + 1
-        return self.state
+        return self._current_state
 
     def evolute(self, gen):
         """
@@ -266,7 +275,7 @@ class D0Lsystem(BaseLsystem):
             print "| %s -> %s" % (r, self.rules[r])
         for _ in xrange(n):
             self.step()
-            print 'gen ' + str(self.generation) + ': ' + self.state
+            print 'gen ' + str(self.generation) + ': ' + self._current_state
 
 def _bounding_box(xmin, xmax, ymin, ymax):
     """
@@ -299,20 +308,50 @@ class Plot:
     Abstract Class for Lsystem ploting
     """
     def __init__(self):
-        raise NotImplementedError
+        """
+        reimplement in subclasses
+        """
+        pass
 
     def lsystem(self, lsys=None):
         """
         Set/Get Lsystem
+
+        >>> p = Plot()
+        >>> p.lsystem(1)
+        Traceback (most recent call last):
+            ...
+        TypeError: lsystem must be a instance of BaseLsystem subclass
+
+        >>> p.lsystem(BaseLsystem('F', {}))
+        >>> l = p.lsystem()
+        >>> isinstance(l, BaseLsystem)
+        True
+        >>> l.state()
+        'F'
+        >>> p.lsystem(D0Lsystem('F',{'F': 'F'}))
+        >>> l = p.lsystem()
+        >>> isinstance(l, D0Lsystem)
+        True
+        >>> l.state()
+        'F'
         """
         # get
         if lsys is None:
-            return self.lsystem
-        # set self.lsystem and lsys.plot
-        self.lsystem = lsys
-        #lsys.plot(self)
+            return self._lsystem
+        # set self._lsystem and lsys.plot
+        self._lsystem = lsys
+        self._check_lsystem()
+
+    def _check_lsystem(self):
+        if not issubclass(self._lsystem.__class__, BaseLsystem):
+            raise TypeError('lsystem must be a instance of BaseLsystem subclass')
+        
 
     def draw(self):
+        """
+        NotImplementedError
+        """
         raise NotImplementedError
 
 class PlotD0LTurtle(Plot):
@@ -351,9 +390,12 @@ class PlotD0LTurtle(Plot):
         else:
             turtle.pencolor(p)
 
-    def draw(self, state):
+    def draw(self):
+
+        state = self.lsystem().state()
+
+
         import turtle
-        # print "draw in %s the state: %s " % (turtle.pencolor(), state)
         for c in state:
             if c == 'F':
                 turtle.forward(self.lengh)
@@ -419,12 +461,11 @@ class PlotD0LTurtle(Plot):
 
         Return:
             (int xmin, int xmax, int ymin, int ymax)
-
-        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F'}))._bbox()
+        >>> PlotD0LTurtle(lsystem=D0Lsystem('F', {'F': 'F'}))._bbox()
         (0, 0, 0, 10)
-        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F+F'}))._bbox()
+        >>> PlotD0LTurtle(lsystem=D0Lsystem('F+F', {'F': 'F'}))._bbox()
         (0, 10, 0, 10)
-        >> PlotD0lTurtle(lsystem=D0Lsystem('F', {'F': 'F-F'}))._bbox()
+        >>> PlotD0LTurtle(lsystem=D0Lsystem('F-F', {'F': 'F'}))._bbox()
         (-10, 0, 0, 10)
 
         """
@@ -439,9 +480,10 @@ class PlotD0LTurtle(Plot):
         head = 90
         flengh = float(lengh)
 
-        string = self.state
+        state = self.lsystem().state()
 
-        for c in string:
+
+        for c in state:
             if c == 'F':
                 if angle == 90:
                     if head % 360 == 0:
