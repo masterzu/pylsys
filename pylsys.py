@@ -220,6 +220,14 @@ class D0Lsystem(BaseLsystem):
         'CCF'
         >>> l.step(2)
         'CCCCF'
+        >>> l = D0Lsystem('F', {'F': 'F[+F]F'})
+        >>> l.step()
+        'F[+F]F'
+        >>> l.step(1)
+        'F[+F]F[+F[+F]F]F[+F]F'
+        >>> l = D0Lsystem('F', {'F': 'F[+F]F'})
+        >>> l.step(2)
+        'F[+F]F[+F[+F]F]F[+F]F'
         """
         for i in xrange(count):
             if self.finished:
@@ -277,17 +285,17 @@ class D0Lsystem(BaseLsystem):
             self.step()
             print 'gen ' + str(self.generation) + ': ' + self._current_state
 
-def _bounding_box(xmin, xmax, ymin, ymax):
+def _bounding_box_int(xmin, xmax, ymin, ymax):
     """
     Calculate the bounding box in integer from float one 
 
-    >>> _bounding_box(0.0, 0.0, 0.0, 0.0)
+    >>> _bounding_box_int(0.0, 0.0, 0.0, 0.0)
     (0, 0, 0, 0)
-    >>> _bounding_box(0.1, -0.1, 0.0, 0.0)
+    >>> _bounding_box_int(0.1, -0.1, 0.0, 0.0)
     Traceback (most recent call last):
         ...
     ValueError
-    >>> _bounding_box(-0.1, 0.1, 0.0, 0.1)
+    >>> _bounding_box_int(-0.1, 0.1, 0.0, 0.1)
     (-1, 1, 0, 1)
     """
     def m(f):
@@ -396,6 +404,9 @@ class PlotD0LTurtle(Plot):
     ###
 	
     def pencolor(self, p=None):
+        """
+        Set/Get the pencolor
+        """
         import turtle
         if p is None:
             turtle.pencolor(self.colors[self.ith_draw % len(self.colors)])
@@ -404,9 +415,9 @@ class PlotD0LTurtle(Plot):
         return self
 
     def draw(self):
-        import turtle
-
-        state = self.lsystem().state()
+        """
+        prepare the origin and interprete the state and draw it
+        """
 
 	# calculate de bounding box
         self._box = self._bounding_box()
@@ -415,23 +426,41 @@ class PlotD0LTurtle(Plot):
         # change origin to translate draw in positive x, y
         if xmin < 0:
             self.origin[0] -= xmin
-            # self.origin = self.origin[0] - xmin, self.origin[1]
-        # if ymin < 0:
-        #     self.origin = self.origin[0], self.origin[1] - ymin
+        # Dont move on y even if draw underground (y<0)
+        if ymin < 0:
+            self.origin[1] -= ymin
 
         if any(self.origin):
             self._move_turtle_origin()
+	
+	self.draw_init()
+	self.draw_state()
+        return self
 
+    def draw_init(self):
+        """
+        draw at the origin a dot
+        """
+        import turtle
+        turtle.dot()
+        return self
 
+    def draw_state(self):
+        """
+        the core of the class
+
+        Interprete character:
+
+        F: move forward
+        +: turn left
+        -: turn right
+        """
+        import turtle
+
+        state = self.lsystem().state()
         for c in state:
             if c == 'F':
                 turtle.forward(self.lengh)
-                # xcor = turtle.xcor() 
-                # ycor = turtle.ycor() 
-                # self.xmin = min(self.xmin, xcor)
-                # self.xmax = max(self.xmax, xcor)
-                # self.ymin = min(self.ymin, ycor)
-                # self.ymay = max(self.ymax, ycor)
             if c == '+':
                 turtle.left(self.angle)
             if c == '-':
@@ -521,11 +550,11 @@ class PlotD0LTurtle(Plot):
 
         Return:
             (int xmin, int xmax, int ymin, int ymax)
-        >>> PlotD0LTurtle(lsystem=D0Lsystem('F', {'F': 'F'}))._bounding_box()
+        >>> PlotD0LTurtle(lsystem=BaseLsystem('F', ''))._bounding_box()
         (0, 0, 0, 10)
-        >>> PlotD0LTurtle(lsystem=D0Lsystem('F+F', {'F': 'F'}))._bounding_box()
+        >>> PlotD0LTurtle(lsystem=BaseLsystem('F+F', ''))._bounding_box()
         (0, 10, 0, 10)
-        >>> PlotD0LTurtle(lsystem=D0Lsystem('F-F', {'F': 'F'}))._bounding_box()
+        >>> PlotD0LTurtle(lsystem=BaseLsystem('F-F', ''))._bounding_box()
         (-10, 0, 0, 10)
 
         """
@@ -574,7 +603,130 @@ class PlotD0LTurtle(Plot):
             if c == '-':
                 head = (head + angle) % 360
 	# print "_bounding_box(%s) = %d, %d, %d, %d" % (state, xmin, xmax, ymin, ymax)
-        return _bounding_box(xmin, xmax, ymin, ymax)
+        return _bounding_box_int(xmin, xmax, ymin, ymax)
+
+class PlotD0LBranchTurtle(PlotD0LTurtle):
+    """
+    Plot a D0Lsystem with graphic interpretation of branching with `[` and `]`
+    """
+
+    def __init__(self, lengh=10, angle=90, colors=None, lsystem=None):
+        """
+
+        """
+        PlotD0LTurtle.__init__(self, lengh=lengh, angle=angle, colors=colors, lsystem=lsystem)
+
+        # stack of draw `[` and `]`
+        self.stack = []
+
+    def draw_state(self):
+        """
+        the core of the class
+
+        Interprete character:
+
+        F: move forward
+        +: turn left
+        -: turn right
+        [: push (position, heading)
+        ]: pop (position, heading)
+        """
+        import turtle
+
+        state = self.lsystem().state()
+        for c in state:
+            if c == 'F':
+                turtle.forward(self.lengh)
+            if c == '+':
+                turtle.left(self.angle)
+            if c == '-':
+                turtle.right(self.angle)
+            if c == '[':
+                self.stack.append((turtle.position(), turtle.heading()))
+            if c == ']':
+                if len(self.stack) == 0:
+                    raise ValueError('inconsistant state: using to much `]`')
+                pos, head = self.stack.pop()
+                turtle.penup()
+                turtle.setpos(pos)
+                turtle.setheading(head)
+                turtle.pendown()
+        return self
+
+    def _bounding_box(self):
+        """
+        just calculate de boxing of a D0L string with branch
+
+        Return:
+            (int xmin, int xmax, int ymin, int ymax)
+        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F', {}))._bounding_box()
+        (0, 0, 0, 10)
+        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F+F', {}))._bounding_box()
+        (0, 10, 0, 10)
+        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F-F', {}))._bounding_box()
+        (-10, 0, 0, 10)
+        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F+[F]', {}))._bounding_box()
+        (-10, 0, 0, 10)
+        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F[+F]F', {}))._bounding_box()
+        (-10, 0, 0, 10)
+
+        """
+        xmin = 0
+        xmax = 0
+        ymin = 0
+        ymax = 0 
+        x = 0
+        y = 0
+
+
+        # like in turtle.mode('logo')
+        head = 90
+        lengh = self.lengh
+        angle = self.angle
+        flengh = float(lengh)
+
+        state = self.lsystem().state()
+        stack = []
+
+
+        for c in state:
+            if c == 'F':
+                if angle == 90:
+                    if head % 360 == 0:
+                        x += flengh
+                        xmax = max(xmax, x)
+                    if head % 360 == 90:
+                        y += flengh
+                        ymax = max(ymax, y)
+                    if head % 360 == 180:
+                        x -= flengh
+                        xmin = min(xmin, x)
+                    if head % 360 == 270:
+                        y -= flengh
+                        ymin = min(ymin, y)
+                else:
+                    angle_rad = math.radians(head)
+                    x = x + math.cos(angle_rad) * flengh
+                    y = y + math.sin(angle_rad) * flengh
+                    xmin = min(xmin, x)
+                    xmax = max(xmax, x)
+                    ymin = min(ymin, y)
+                    ymax = max(ymax, y)
+            if c == '+':
+                head = (head - angle + 360) % 360
+            if c == '-':
+                head = (head + angle) % 360
+            if c == '[':
+                stack.append( (x, y, head) )
+            if c == ']':
+                if len(stack) == 0:
+                    raise ValueError('inconsistant state: using to much `]`')
+                x, y, head = stack.pop()
+        # print "stack=%s" % stack
+        return _bounding_box_int(xmin, xmax, ymin, ymax)
+
+
+
 
 
         
