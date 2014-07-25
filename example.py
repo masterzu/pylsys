@@ -4,12 +4,14 @@
 from pylsys import *
 import turtle 
 
-# the l-system
+# simple draw
 l = D0Lsystem('F', {'F': 'F-F++F-F'})
-# the plot system
+l.step(2)
 t = PlotD0LTurtle(angle=60, lsystem=l)
+t.draw().done()
 
-t.draw_evolute(3)
-
+# draw_evolute
+t = PlotD0LTurtle(angle=60, lsystem=D0Lsystem('F', {'F': 'F-F++F-F'}))
+t.draw_evolute(5)
 
 
