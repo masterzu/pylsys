@@ -190,18 +190,28 @@ class D0Lsystem(BaseLsystem):
         return the current state
 
         >>> d = D0Lsystem('F', {'F': 'F+F'})
-        >>> str(d)
-        'F'
+        >>> print d
+        | axiom=F
+        | F -> F+F
+        +--
+        = F
         >>> d.step()
         'F+F'
         >>> print d
-        F+F
-        >>> str(d)
-        'F+F'
+        | axiom=F
+        | F -> F+F
+        +--
+        = F+F
         """
+        s = "| axiom=%s\n" % self.axiom
+        for r in self.rules.keys():
+            s += "| %s -> %s\n" % (r, self.rules[r])
+        s += "+--\n"
         if self._current_state is None:
-            return '(none)'
-        return str(self._current_state)
+            s += "= (none)"
+        else:
+            s += "= %s" % str(self._current_state)
+        return s
     
     def __repl__(self):
         return self.__str__()
@@ -289,6 +299,8 @@ def _bounding_box_int(xmin, xmax, ymin, ymax):
     """
     Calculate the bounding box in integer from float one 
 
+    >>> _bounding_box_int(0, 0, 0, 0)
+    (0, 0, 0, 0)
     >>> _bounding_box_int(0.0, 0.0, 0.0, 0.0)
     (0, 0, 0, 0)
     >>> _bounding_box_int(0.1, -0.1, 0.0, 0.0)
@@ -378,10 +390,10 @@ class PlotD0LTurtle(Plot):
         if lsystem is not None:
             self.lsystem(lsystem)
 
-	# draw number
+        # draw number
         self.ith_draw = 0
 
-	# origin of next draw
+        # origin of next draw
         self.origin = [0, 0]
 
         # bounding_box
@@ -419,22 +431,24 @@ class PlotD0LTurtle(Plot):
         prepare the origin and interprete the state and draw it
         """
 
-	# calculate de bounding box
+        # calculate de bounding box
         self._box = self._bounding_box()
         xmin, xmax, ymin, ymax = self._box
+        # print "_box=%s" % (self._box,)
 
         # change origin to translate draw in positive x, y
         if xmin < 0:
             self.origin[0] -= xmin
-        # Dont move on y even if draw underground (y<0)
         if ymin < 0:
             self.origin[1] -= ymin
 
         if any(self.origin):
             self._move_turtle_origin()
+        # print "o=%s" % (self.origin,)
+
 	
-	self.draw_init()
-	self.draw_state()
+        self.draw_init()
+        self.draw_state()
         return self
 
     def draw_init(self):
@@ -452,8 +466,8 @@ class PlotD0LTurtle(Plot):
         Interprete character:
 
         F: move forward
-        +: turn left
-        -: turn right
+        +: turn right
+        -: turn left
         """
         import turtle
 
@@ -462,9 +476,9 @@ class PlotD0LTurtle(Plot):
             if c == 'F':
                 turtle.forward(self.lengh)
             if c == '+':
-                turtle.left(self.angle)
-            if c == '-':
                 turtle.right(self.angle)
+            if c == '-':
+                turtle.left(self.angle)
         return self
 
     def reset(self):
@@ -481,7 +495,7 @@ class PlotD0LTurtle(Plot):
         # next draw
         self.ith_draw += 1
 
-	# next color
+        # next color
         self.pencolor()
 
         # move turtle
@@ -533,9 +547,17 @@ class PlotD0LTurtle(Plot):
         turtle.setpos(self.origin)
         turtle.pendown()
 
+        # reset heading
+        turtle.setheading(90)
+
     def _move_turtle_nextdraw(self):
-        import turtle
-        self.origin[0] += 10
+        xmin, xmax, ymin, ymax = self._box
+        width = xmax - xmin
+        self.origin[0] += 10 + width
+        # dont move in vertical
+        # height = ymax - ymin
+        # self.origin[1] += 10 + height
+
         self._move_turtle_origin()
 
 
@@ -552,6 +574,8 @@ class PlotD0LTurtle(Plot):
             (int xmin, int xmax, int ymin, int ymax)
         >>> PlotD0LTurtle(lsystem=BaseLsystem('F', ''))._bounding_box()
         (0, 0, 0, 10)
+        >>> PlotD0LTurtle(lsystem=BaseLsystem('+F', ''))._bounding_box()
+        (0, 10, 0, 0)
         >>> PlotD0LTurtle(lsystem=BaseLsystem('F+F', ''))._bounding_box()
         (0, 10, 0, 10)
         >>> PlotD0LTurtle(lsystem=BaseLsystem('F-F', ''))._bounding_box()
@@ -598,12 +622,14 @@ class PlotD0LTurtle(Plot):
                     xmax = max(xmax, x)
                     ymin = min(ymin, y)
                     ymax = max(ymax, y)
-            if c == '+':
+            if c == '+': # right
                 head = (head - angle + 360) % 360
-            if c == '-':
+            if c == '-': # left
                 head = (head + angle) % 360
-	# print "_bounding_box(%s) = %d, %d, %d, %d" % (state, xmin, xmax, ymin, ymax)
-        return _bounding_box_int(xmin, xmax, ymin, ymax)
+        # print "_bounding_box(%s) = %s, %s, %s, %s" % (state, xmin, xmax, ymin, ymax)
+        xmin, xmax, ymin, ymax = _bounding_box_int(xmin, xmax, ymin, ymax)
+        # print "_bounding_box_int = %s, %s, %s, %s" % (xmin, xmax, ymin, ymax)
+        return xmin, xmax, ymin, ymax
 
 class PlotD0LBranchTurtle(PlotD0LTurtle):
     """
@@ -626,8 +652,8 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
         Interprete character:
 
         F: move forward
-        +: turn left
-        -: turn right
+        +: turn right
+        -: turn left
         [: push (position, heading)
         ]: pop (position, heading)
         """
@@ -638,9 +664,9 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
             if c == 'F':
                 turtle.forward(self.lengh)
             if c == '+':
-                turtle.left(self.angle)
-            if c == '-':
                 turtle.right(self.angle)
+            if c == '-':
+                turtle.left(self.angle)
             if c == '[':
                 self.stack.append((turtle.position(), turtle.heading()))
             if c == ']':
@@ -666,9 +692,9 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
         >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F-F', {}))._bounding_box()
         (-10, 0, 0, 10)
         >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F+[F]', {}))._bounding_box()
-        (-10, 0, 0, 10)
+        (0, 10, 0, 10)
         >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F[+F]F', {}))._bounding_box()
-        (-10, 0, 0, 10)
+        (0, 10, 0, 20)
 
         """
         xmin = 0
