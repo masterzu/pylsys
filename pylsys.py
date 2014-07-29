@@ -27,7 +27,7 @@ class BaseLsystem:
     """
     def __init__(self, axiom, rules, plot=None):
         """
-        init func with plot instance of type LsystemPlot
+        init func with plot instance of type Plot
 
         rules tests must be made on subclasses
 
@@ -83,6 +83,14 @@ class BaseLsystem:
         """
         if not issubclass(self._plot.__class__, Plot):
             raise TypeError('plot must be a instance of Plot subclass')
+
+
+    def reset(self):
+        """
+        reset state to axiom
+        """
+        self._current_state = self.axiom
+        self.generation = 0
 
 
     def state(self):
@@ -368,9 +376,24 @@ class Plot:
     def _check_lsystem(self):
         if not issubclass(self._lsystem.__class__, BaseLsystem):
             raise TypeError('lsystem must be a instance of BaseLsystem subclass')
-        
+
+    def step(self):
+        """
+        make a lsystem step
+
+        Returns:
+        	self
+        """
+        self._lsystem.step()
+        return self
 
     def draw(self):
+        """
+        NotImplementedError
+        """
+        raise NotImplementedError
+
+    def done(self):
         """
         NotImplementedError
         """
@@ -412,12 +435,16 @@ class PlotD0LTurtle(Plot):
 
     ###
     # plot functions
-    # return self
+    # 
+    # Must return self for chaining call
     ###
 	
     def pencolor(self, p=None):
         """
         Set/Get the pencolor
+
+        Returns: 
+            self
         """
         import turtle
         if p is None:
@@ -428,7 +455,13 @@ class PlotD0LTurtle(Plot):
 
     def draw(self):
         """
-        prepare the origin and interprete the state and draw it
+        the draw process: 
+        - move the turtle according the bounding box of the current state
+        - draw a dot for the drawing origin
+        - draw the current state
+
+        Returns: 
+            self
         """
 
         # calculate de bounding box
@@ -454,6 +487,9 @@ class PlotD0LTurtle(Plot):
     def draw_init(self):
         """
         draw at the origin a dot
+
+        Returns: 
+            self
         """
         import turtle
         turtle.dot()
@@ -468,6 +504,9 @@ class PlotD0LTurtle(Plot):
         F: move forward
         +: turn right
         -: turn left
+
+        Returns: 
+            self
         """
         import turtle
 
@@ -482,15 +521,41 @@ class PlotD0LTurtle(Plot):
         return self
 
     def reset(self):
+        """
+        move turtle to 0, 0
+
+        Returns: 
+            self
+        """
         import turtle
         turtle.penup()
         turtle.home()
         turtle.pendown()
         self.origin = [0, 0]
+
+        # turtle must be reset after every exitonclick
+        # turtle head north and positive angles is clockwise
+        turtle.mode('world')
+        turtle.setheading(90)
+        turtle.speed(0) # fastest
+        turtle.hideturtle()
+        turtle.tracer(0, 1)
+
         return self
+
+    def reset_lsystem(self):
+        self._lsystem.reset()
 
 
     def nextdraw(self):
+        """
+        Prepare turtle for the next draw:
+        - move the turtle
+        - change the pen
+
+        Returns: 
+            self
+        """
         import turtle
         # next draw
         self.ith_draw += 1
@@ -506,8 +571,11 @@ class PlotD0LTurtle(Plot):
     def done(self):
         import turtle
         """
-        finish all draws 
+        setup window size
         and wait for click to close de window
+
+        Returns: 
+            self
         """
         # change the screen size
         x0, y0 = self.origin
@@ -525,21 +593,37 @@ class PlotD0LTurtle(Plot):
         turtle.exitonclick()
         return self
 
-    def draw_evolute(self, i):
+    def draw_evolute(self, i, onedraw=True):
         """
-        draw evolution state using lsystem.evolute(i)
+        draw evolution states
+
+        Returns: 
+            self
         """
         # print 'Draw with:'
         # print '- lengh %s' % self.lengh
         # print '- angle %s ' % self.angle
-        for s in self.lsystem().evolute(i):
-            # print "o=%s" % (self.origin,)
-            self.draw()
-            # print "box=%s" % (self._box,)
-            self.lengh *= 0.5
-            self.nextdraw()
-        self.done()
+        if onedraw:
+            for s in self.lsystem().evolute(i):
+                # print "o=%s" % (self.origin,)
+                self.draw()
+                # print "box=%s" % (self._box,)
+                self.lengh *= 0.5
+                self.nextdraw()
+            self.done()
+        else:
+            for s in self.lsystem().evolute(i):
+                self.reset()
+                self.draw()
+                self.lengh *= 0.5
+                self.done()
+                
+
         return self
+
+	###
+    # prvate draw function
+    ###
 
     def _move_turtle_origin(self):
         import turtle
@@ -568,7 +652,7 @@ class PlotD0LTurtle(Plot):
 
     def _bounding_box(self):
         """
-        just calculate de boxing of a D0L string
+        Calculate de bounding box of a D0L string
 
         Return:
             (int xmin, int xmax, int ymin, int ymax)
