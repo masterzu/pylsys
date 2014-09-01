@@ -328,6 +328,80 @@ def _bounding_box_int(xmin, xmax, ymin, ymax):
 
     return m(xmin), M(xmax), m(ymin), M(ymax)
 
+def _bounding_box(state, length=10, angle=90):
+    """
+    just calculate de boxing of a D0L string with branch
+
+    Args:
+        state: string for current state
+        length: length of a line
+        angle: rotation angle in degree; + for right turn and - for left turn
+
+    Return:
+        (int xmin, int xmax, int ymin, int ymax)
+
+    >>> _bounding_box('F')
+    (0, 0, 0, 10)
+    >>> _bounding_box('F+F')
+    (0, 10, 0, 10)
+    >>> _bounding_box('F-F')
+    (-10, 0, 0, 10)
+    >>> _bounding_box('F+[F]')
+    (0, 10, 0, 10)
+    >>> _bounding_box('F[+F]F')
+    (0, 10, 0, 20)
+
+    """
+    xmin = 0
+    xmax = 0
+    ymin = 0
+    ymax = 0 
+    x = 0
+    y = 0
+
+
+    # like in turtle.mode('logo')
+    head = 90
+    flength = float(length)
+
+    stack = []
+
+
+    for c in state:
+        if c == 'F':
+            if angle == 90:
+                if head % 360 == 0:
+                    x += flength
+                    xmax = max(xmax, x)
+                if head % 360 == 90:
+                    y += flength
+                    ymax = max(ymax, y)
+                if head % 360 == 180:
+                    x -= flength
+                    xmin = min(xmin, x)
+                if head % 360 == 270:
+                    y -= flength
+                    ymin = min(ymin, y)
+            else:
+                angle_rad = math.radians(head)
+                x = x + math.cos(angle_rad) * flength
+                y = y + math.sin(angle_rad) * flength
+                xmin = min(xmin, x)
+                xmax = max(xmax, x)
+                ymin = min(ymin, y)
+                ymax = max(ymax, y)
+        if c == '+':
+            head = (head - angle + 360) % 360
+        if c == '-':
+            head = (head + angle) % 360
+        if c == '[':
+            stack.append( (x, y, head) )
+        if c == ']':
+            if len(stack) == 0:
+                raise ValueError('inconsistant state: using to much `]`')
+            x, y, head = stack.pop()
+    # print "stack=%s" % stack
+    return _bounding_box_int(xmin, xmax, ymin, ymax)
 
 
 
@@ -377,21 +451,51 @@ class Plot:
         if not issubclass(self._lsystem.__class__, BaseLsystem):
             raise TypeError('lsystem must be a instance of BaseLsystem subclass')
 
-    def step(self):
+    def step(self, count=1):
         """
         make a lsystem step
 
         Returns:
         	self
         """
-        self._lsystem.step()
+        self._lsystem.step(count)
         return self
 
     def draw(self):
         """
+        draw the current state
+
         NotImplementedError
         """
         raise NotImplementedError
+
+    def draw_evolute(self, i, onedraw=True):
+        """
+        draw evolution states
+        draw the evolution states from axiom to ith step
+
+        Returns: 
+            self
+        """
+        # print 'Draw with:'
+        # print '- length %s' % self.length
+        # print '- angle %s ' % self.angle
+        if onedraw:
+            for s in self.lsystem().evolute(i):
+                self.draw()
+                self.length *= 0.5
+                self.nextdraw()
+            self.done()
+        else:
+            for s in self.lsystem().evolute(i):
+                self.reset()
+                self.draw()
+                self.length *= 0.5
+                self.done()
+                
+
+        return self
+
 
     def done(self):
         """
@@ -404,9 +508,9 @@ class PlotD0LTurtle(Plot):
     plot D0L with python turtle module
     """
 
-    def __init__(self, lengh=10, angle=90, colors=None, lsystem=None):
+    def __init__(self, length=10, angle=90, colors=None, lsystem=None):
         import turtle
-        self.lengh = lengh
+        self.length = length
         self.angle = angle
         if colors is None:
             self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'brown']
@@ -465,7 +569,7 @@ class PlotD0LTurtle(Plot):
         """
 
         # calculate de bounding box
-        self._box = self._bounding_box()
+        self._box = _bounding_box(self.lsystem().state(), self.length, self.angle)
         xmin, xmax, ymin, ymax = self._box
         # print "_box=%s" % (self._box,)
 
@@ -480,11 +584,11 @@ class PlotD0LTurtle(Plot):
         # print "o=%s" % (self.origin,)
 
 	
-        self.draw_init()
+        self.draw_root()
         self.draw_state()
         return self
 
-    def draw_init(self):
+    def draw_root(self):
         """
         draw at the origin a dot
 
@@ -513,7 +617,7 @@ class PlotD0LTurtle(Plot):
         state = self.lsystem().state()
         for c in state:
             if c == 'F':
-                turtle.forward(self.lengh)
+                turtle.forward(self.length)
             if c == '+':
                 turtle.right(self.angle)
             if c == '-':
@@ -593,34 +697,6 @@ class PlotD0LTurtle(Plot):
         turtle.exitonclick()
         return self
 
-    def draw_evolute(self, i, onedraw=True):
-        """
-        draw evolution states
-
-        Returns: 
-            self
-        """
-        # print 'Draw with:'
-        # print '- lengh %s' % self.lengh
-        # print '- angle %s ' % self.angle
-        if onedraw:
-            for s in self.lsystem().evolute(i):
-                # print "o=%s" % (self.origin,)
-                self.draw()
-                # print "box=%s" % (self._box,)
-                self.lengh *= 0.5
-                self.nextdraw()
-            self.done()
-        else:
-            for s in self.lsystem().evolute(i):
-                self.reset()
-                self.draw()
-                self.lengh *= 0.5
-                self.done()
-                
-
-        return self
-
 	###
     # prvate draw function
     ###
@@ -644,87 +720,16 @@ class PlotD0LTurtle(Plot):
 
         self._move_turtle_origin()
 
-
-
-    ###
-    # private function
-    ###
-
-    def _bounding_box(self):
-        """
-        Calculate de bounding box of a D0L string
-
-        Return:
-            (int xmin, int xmax, int ymin, int ymax)
-        >>> PlotD0LTurtle(lsystem=BaseLsystem('F', ''))._bounding_box()
-        (0, 0, 0, 10)
-        >>> PlotD0LTurtle(lsystem=BaseLsystem('+F', ''))._bounding_box()
-        (0, 10, 0, 0)
-        >>> PlotD0LTurtle(lsystem=BaseLsystem('F+F', ''))._bounding_box()
-        (0, 10, 0, 10)
-        >>> PlotD0LTurtle(lsystem=BaseLsystem('F-F', ''))._bounding_box()
-        (-10, 0, 0, 10)
-
-        """
-        xmin = 0
-        xmax = 0
-        ymin = 0
-        ymax = 0 
-        x = 0
-        y = 0
-
-
-        # like in turtle.mode('logo')
-        head = 90
-        lengh = self.lengh
-        angle = self.angle
-        flengh = float(lengh)
-
-        state = self.lsystem().state()
-
-
-        for c in state:
-            if c == 'F':
-                if angle == 90:
-                    if head % 360 == 0:
-                        x += flengh
-                        xmax = max(xmax, x)
-                    if head % 360 == 90:
-                        y += flengh
-                        ymax = max(ymax, y)
-                    if head % 360 == 180:
-                        x -= flengh
-                        xmin = min(xmin, x)
-                    if head % 360 == 270:
-                        y -= flengh
-                        ymin = min(ymin, y)
-                else:
-                    angle_rad = math.radians(head)
-                    x = x + math.cos(angle_rad) * flengh
-                    y = y + math.sin(angle_rad) * flengh
-                    xmin = min(xmin, x)
-                    xmax = max(xmax, x)
-                    ymin = min(ymin, y)
-                    ymax = max(ymax, y)
-            if c == '+': # right
-                head = (head - angle + 360) % 360
-            if c == '-': # left
-                head = (head + angle) % 360
-        # print "_bounding_box(%s) = %s, %s, %s, %s" % (state, xmin, xmax, ymin, ymax)
-        xmin, xmax, ymin, ymax = _bounding_box_int(xmin, xmax, ymin, ymax)
-        # print "_bounding_box_int = %s, %s, %s, %s" % (xmin, xmax, ymin, ymax)
-        return xmin, xmax, ymin, ymax
-
 class PlotD0LBranchTurtle(PlotD0LTurtle):
     """
     Plot a D0Lsystem with graphic interpretation of branching with `[` and `]`
     """
 
-    def __init__(self, lengh=10, angle=90, colors=None, lsystem=None):
+    def __init__(self, length=10, angle=90, colors=None, lsystem=None):
         """
 
         """
-        PlotD0LTurtle.__init__(self, lengh=lengh, angle=angle, colors=colors, lsystem=lsystem)
+        PlotD0LTurtle.__init__(self, length=length, angle=angle, colors=colors, lsystem=lsystem)
 
         # stack of draw `[` and `]`
         self.stack = []
@@ -746,7 +751,7 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
         state = self.lsystem().state()
         for c in state:
             if c == 'F':
-                turtle.forward(self.lengh)
+                turtle.forward(self.length)
             if c == '+':
                 turtle.right(self.angle)
             if c == '-':
@@ -763,65 +768,165 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
                 turtle.pendown()
         return self
 
-    def _bounding_box(self):
+
+class PlotD0LTkinter(Plot):
+    """
+    Draw a D0Lsystem using Tkinter Canvas
+    """
+
+    def __init__(self, length=10, angle=90, colors=None, lsystem=None):
+        import Tkinter
+
+		## geometric attrs
+        self.length = length # line size
+        self.angle = angle # angle rotation in degrees
+        if colors is None:
+            self.colors = ['red', 'green', 'blue', 'orange', 'yellow', 'brown']
+        else:
+            self.colors = colors
+        self.color = self.colors[0]
+        # turtle geometry
+        # origin at left,bottom
+        # angle origin with abscisse axe
+        self.origin = [0, 0]
+        self.curpos = [0, 0]
+        self.curangle = 90
+        # bounding_box
+        self._bbox = 0, 0, 0, 0
+        # width and height
+        self.size = [0, 0]
+
+        # lsystem
+        if lsystem is not None:
+            self.lsystem(lsystem)
+
+
+        # Tk objects
+        self.root = Tkinter.Tk()
+        self.canvas = Tkinter.Canvas(self.root)
+        self.canvas.bind('<Button-1>', self._on_exit)
+
+
+
+    def draw(self):
         """
-        just calculate de boxing of a D0L string with branch
+        draw process
+        - calculate the width and height using bounding box of the current state
+        - draw the root
+        - draw the current state
 
-        Return:
-            (int xmin, int xmax, int ymin, int ymax)
-        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F', {}))._bounding_box()
-        (0, 0, 0, 10)
-        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F+F', {}))._bounding_box()
-        (0, 10, 0, 10)
-        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F-F', {}))._bounding_box()
-        (-10, 0, 0, 10)
-        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F+[F]', {}))._bounding_box()
-        (0, 10, 0, 10)
-        >>> PlotD0LBranchTurtle(lsystem=BaseLsystem('F[+F]F', {}))._bounding_box()
-        (0, 10, 0, 20)
-
+        Returns:
+        	self
         """
-        xmin = 0
-        xmax = 0
-        ymin = 0
-        ymax = 0 
-        x = 0
-        y = 0
+        # calculate de bounding box and size
+        # + resize length if to big
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
 
+        length = self.length
+       
+        # adapte draw for screen size
+        xmin, xmax, ymin, ymax = _bounding_box(self.lsystem().state(), self.length, self.angle)
+        while xmax - xmin > screen_width or ymax - ymin > screen_height:
+            self.length *= .5
+            xmin, xmax, ymin, ymax = _bounding_box(self.lsystem().state(), self.length, self.angle)
 
-        # like in turtle.mode('logo')
+            print "Draw too big ... reducing"
+
+        self._bbox = xmin, xmax, ymin, ymax
+        self.size = xmax - xmin, ymax - ymin
+
+        # print "size=%s" % (self.size,)
+
+        # change origin to translate draw in positive x, y
+        if xmin < 0:
+            self.origin[0] -= xmin
+        if ymin < 0:
+            self.origin[1] -= ymin
+
+        # change canvas geometry
+        self.canvas['width']  = max(self.size[0], 50)
+        self.canvas['height'] = max(self.size[1], 50)
+        self.canvas.pack()
+
+        # print "canvas=%s" % self.canvas.config()
+
+        self.draw_root()
+        self.draw_state()
+        return self
+
+    def done(self):
+        self.root.mainloop()
+
+        return self
+
+    def draw_root(self):
+        """
+        draw the root with a circle with -5, -5, +5, +5 around the origin
+
+        Returns:
+        	self
+        """
+        x0, y0 = self._turtle2tk_coords(*self.origin)
+        x0 -= 5
+        y0 -= 5
+        x1, y1 = self._turtle2tk_coords(*self.origin)
+        x1 += 5
+        y1 += 5
+
+        self.canvas.create_oval(x0, y0, x1, y1, fill="black")
+
+        return self
+
+    def draw_state(self):
+        """
+        the core of the class
+        
+        Interprete character:
+            
+            F: move forward
+            +: turn right
+            -: turn left
+            
+            Returns: 
+                self
+        """
+        # virtual turtle
+        x, y = self.origin
         head = 90
-        lengh = self.lengh
-        angle = self.angle
-        flengh = float(lengh)
 
+        # lsystem
         state = self.lsystem().state()
-        stack = []
+        length = self.length
+        angle = self.angle
 
+        stack = []
+        flength = float(length)
+
+        # canvas
+        canvas = self.canvas
+        # kargs_line = {'outline': self.color}
+        kargs_line = {}
 
         for c in state:
             if c == 'F':
                 if angle == 90:
                     if head % 360 == 0:
-                        x += flengh
-                        xmax = max(xmax, x)
+                        x1, y1 = x + flength, y
                     if head % 360 == 90:
-                        y += flengh
-                        ymax = max(ymax, y)
+                        x1, y1 = x, y + flength
                     if head % 360 == 180:
-                        x -= flengh
-                        xmin = min(xmin, x)
+                        x1, y1 = x - flength, y
                     if head % 360 == 270:
-                        y -= flengh
-                        ymin = min(ymin, y)
+                        x1, y1 = x, y - flength
                 else:
                     angle_rad = math.radians(head)
-                    x = x + math.cos(angle_rad) * flengh
-                    y = y + math.sin(angle_rad) * flengh
-                    xmin = min(xmin, x)
-                    xmax = max(xmax, x)
-                    ymin = min(ymin, y)
-                    ymax = max(ymax, y)
+                    x1 = x + math.cos(angle_rad) * flength
+                    y1 = y + math.sin(angle_rad) * flength
+                p0 = self._turtle2tk_coords(x, y)
+                p1 = self._turtle2tk_coords(x1, y1)
+                canvas.create_line(p0, p1, **kargs_line)
+                x, y = x1, y1
             if c == '+':
                 head = (head - angle + 360) % 360
             if c == '-':
@@ -832,8 +937,83 @@ class PlotD0LBranchTurtle(PlotD0LTurtle):
                 if len(stack) == 0:
                     raise ValueError('inconsistant state: using to much `]`')
                 x, y, head = stack.pop()
-        # print "stack=%s" % stack
-        return _bounding_box_int(xmin, xmax, ymin, ymax)
+
+        self.origin = x, y
+        self.head = head
+
+
+        return self
+
+    def nextdraw(self):
+        """
+        Prepare context for the next draw:
+        - change the pencolor
+         
+        Returns: 
+            self
+        """
+        return self
+
+    def pencolor(self, p=None):
+        """
+        Set/Get the pencolor
+         
+        Returns: 
+             self
+        """
+        return self
+
+    def reset(self):
+        """
+        Reset context
+
+        Returns: 
+             self
+        """
+        return self
+
+    ###
+    # private geometric function
+    ###
+
+    def _turtle2tk_coords(self, x, y):
+        """
+        transform coords in turtle coords to tk coords
+
+        Returns:
+        	x, y
+
+        >>> t = PlotD0LTkinter()
+        >>> t.size = 100, 100
+        >>> t._turtle2tk_coords(0, 0)
+        (0, 100)
+        >>> t._turtle2tk_coords(50, 0)
+        (50, 100)
+        >>> t._turtle2tk_coords(0, 50)
+        (0, 50)
+
+        """
+        return x, self.size[1] - y
+
+    ###
+    # private events functions
+    ###
+
+    def _on_exit(self, ev):
+        """
+        handler to close the application
+        """
+        print "event %s" % ev
+        self.root.destroy()
+
+    def _on_close(self, ev):
+        """
+        handler to close the current windows -- used by draw_evolute
+        """
+        ev['widget'].withdraw()
+
+
+
 
 
 

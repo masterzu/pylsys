@@ -27,7 +27,14 @@ import turtle
 # t = PlotD0LBranchTurtle(angle=12, lsystem=D0Lsystem('F', {'F': 'F[+F][-F]F'}))
 # t.draw_evolute(3)
 
-t = PlotD0LBranchTurtle(angle=25.7, lsystem=D0Lsystem('F', {'F': 'F[+F]F[-F]F'}))
-t.draw_evolute(5)
-t.reset_lsystem()
-t.draw_evolute(5, False)
+# t = PlotD0LBranchTurtle(angle=25.7, lsystem=D0Lsystem('F', {'F': 'F[+F]F[-F]F'}))
+# t.draw_evolute(5)
+# t.reset_lsystem()
+# t.draw_evolute(5, False)
+
+# t = PlotD0LBranchTurtle(angle=25.7, lsystem=D0Lsystem('X', {'X': 'F[+X][-X]FX', 'F': 'FF'}))
+# t.step(9)
+# t.draw().done()
+
+t = PlotD0LTkinter(angle=25.7, lsystem=D0Lsystem('X', {'X': 'F[+X][-X]FX', 'F': 'FF'}))
+t.step(10).draw().done()
